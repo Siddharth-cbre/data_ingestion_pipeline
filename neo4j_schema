@@ -1,0 +1,47 @@
+NEO4J:
+schema_reference = """
+
+    Nodes:
+    1. Activity:
+    - Properties: activityDescription, activityId, providerType
+    2. Asset:
+    - Properties: assetDescription, assetId, manufacturer, model,serialNumber, is_HVAC, asset_type, suggested_asset,
+                  vendorName, vendorAddress, vendorCity, vendorRegion, vendorCountry, vendorPostalCode
+    3. Country:
+    - Properties: country
+    4. Customer:
+    - Properties: customer
+    5. Location:
+    - Properties: locationId, locationPath
+    6. ServiceRequest:
+    - Properties: createdMonth, createdYear, isSelfAssign, priorityCode, requestCreatedDate, requestDescription, requestId, completionNotes
+                  requestTargetCompletionDate, serviceClassificationId, serviceClassificationPath, sla, workType, requestCompletionDate, isCompleted
+
+    Relationships:
+    (:Asset)-[:LOCATED_AT]->(:Location)
+    (:ServiceRequest)-[:AT_LOCATION]->(:Location)
+    (:ServiceRequest)-[:HAS_ACTIVITY]->(:Activity)
+    (:ServiceRequest)-[:FOR_ASSET]->(:Asset)
+    (:Customer)-[:OPERATES_IN]->(:Country)
+    (:Customer)-[:RESIDES_AT]->(:Location)
+    (:Customer)-[:OWNS]->(:Asset)
+    (:Customer)-[:CREATES]->(:ServiceRequest)
+    (:Location)-[:IN]->(:Country)
+ 
+    """
+
+
+
+
+    """
+    Old Relationships:
+    (:Asset)-[:LOCATES_AT]->(:Location)
+    (:ServiceRequest)-[:HAPPENS_AT]->(:Location)
+    (:ServiceRequest)-[:HAS_ACTIVITY]->(:Activity)
+    (:ServiceRequest)-[:REALTED_TO]->(:Asset)
+    (:Customer)-[:OPERATES_IN]->(:Country)
+    (:Customer)-[:RESIDES_AT]->(:Location)
+    (:Customer)-[:OWNS]->(:Asset)
+    (:Customer)-[:CREATES]->(:ServiceRequest)
+    (:Location)-[:IN]->(:Country)
+    """

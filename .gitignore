@@ -1,0 +1,7 @@
+config.ini
+data
+data_injestion
+fetched_data
+neo4j_data
+neo4j_relationships
+.DS_Store
