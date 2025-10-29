@@ -177,6 +177,7 @@ class DataLoaderAndMigrator:
 
         v_assets = self.df_assets[['assetId','Asset Alt Id', 'Asset Description', 'manufacturer', 'model', 'serialNumber']]
         v_assets = v_assets.merge(requests_subset, left_on = 'Asset Alt Id', right_on = 'assetAlternateId', how= 'left')
+        v_assets = v_assets[v_assets['requestAlternateId'].notna()] # keeping only those asset records which are associated to the presently fetched serviceRequests
 
         is_hvac_df = self.is_hvac_df.copy()
         is_hvac_df['is_HVAC'] = True

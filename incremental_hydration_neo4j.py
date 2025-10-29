@@ -57,8 +57,10 @@ class DataLoaderAndMigrator:
         self.db_query2 = db_config.get('query_assets')
         self.db_query3 = db_config.get('query_request_with_activities')
         self.db_schema = db_config.get('schema')
+
         self.last_sync_date_time = None
-        self.sync_check()
+        self.time_sync()
+
         self.executor()
 
         #-- MIGRATION --#
@@ -83,8 +85,12 @@ class DataLoaderAndMigrator:
         self.nj_password = nj_config.get('password')
 
         self.driver = GraphDatabase.driver(self.nj_url, auth=(self.nj_username, self.nj_password))
+    
+    def time_sync(self):
+        current_time = datetime.datetime.now()
+        last_sync_date_time = current_time - datetime.timedelta(days=1)
+        self.last_sync_date_time = pd.to_datetime(last_sync_date_time, format='mixed').strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
-        
     
     def sync_check(self):
 
@@ -140,7 +146,7 @@ class DataLoaderAndMigrator:
         logger.info("DATA LOADING SUCCESSFUL!")
         logger.info("=" * 50)
 
-        self.sync_time_updater()
+        # self.sync_time_updater()
 
     def database_connector(self, db_type, host, port, database, username, password, **kwargs):
     
@@ -222,6 +228,7 @@ class DataLoaderAndMigrator:
 
         v_assets = self.df_assets[['assetId','Asset Alt Id', 'Asset Description', 'manufacturer', 'model', 'serialNumber']]
         v_assets = v_assets.merge(requests_subset, left_on = 'Asset Alt Id', right_on = 'assetAlternateId', how= 'left')
+        v_assets = v_assets[v_assets['requestAlternateId'].notna()] # keeping only those asset records which are associated to the presently fetched serviceRequests
 
         is_hvac_df = self.is_hvac_df.copy()
         is_hvac_df['is_HVAC'] = True
@@ -785,8 +792,6 @@ class DataLoaderAndMigrator:
 
         except Exception as e:
             logger.warning(f"Error creating Relationships for nodes on Neo4j: {e}")
-
-
 
 
 try:
