@@ -21,60 +21,61 @@ from typing import Dict
 import warnings
 warnings.filterwarnings('ignore')
 
+from config import *
 
 class DataLoaderAndMigrator:
 
     def __init__(self, config_file_path):
 
         #-- LOADER --#
-        if not Path(config_file_path).exists():
-            logger.warning(f"Config file {config_file_path} not found!")
+        # if not Path(config_file_path).exists():
+        #     logger.warning(f"Config file {config_file_path} not found!")
         
-        config = configparser.ConfigParser()
-        config.read(config_file_path)
+        # config = configparser.ConfigParser()
+        # config.read(config_file_path)
 
-        if 'DATABASE' not in config:
-            raise ValueError("DATABASE section not found in config")
+        # if 'DATABASE' not in config:
+        #     raise ValueError("DATABASE section not found in config")
         
-        db_config = {
-            'host': config['DATABASE']['host'],
-            'port': int(config['DATABASE']['port']),
-            'username': config['DATABASE']['username'],
-            'password': config['DATABASE']['password'],
-            'database': config['DATABASE']['database'],
-            'query_request': config['DATABASE']['query1'],
-            'query_assets': config['DATABASE']['query2'],
-            'query_request_with_activities': config['DATABASE']['query3'],
-            'schema': config['DATABASE']['schema']
-        }
+        # db_config = {
+        #     'host': config['DATABASE']['host'],
+        #     'port': int(config['DATABASE']['port']),
+        #     'username': config['DATABASE']['username'],
+        #     'password': config['DATABASE']['password'],
+        #     'database': config['DATABASE']['database'],
+        #     'query_request': config['DATABASE']['query1'],
+        #     'query_assets': config['DATABASE']['query2'],
+        #     'query_request_with_activities': config['DATABASE']['query3'],
+        #     'schema': config['DATABASE']['schema']
+        # }
 
-        self.db_host = db_config.get('host')
-        self.db_port = db_config.get('port')
-        self.db_username = db_config.get('username')
-        self.db_password = db_config.get('password')
-        self.db_database = db_config.get('database')
-        self.db_query1 = db_config.get('query_request')
-        self.db_query2 = db_config.get('query_assets')
-        self.db_query3 = db_config.get('query_request_with_activities')
-        self.db_schema = db_config.get('schema')
+        self.db_host = DatabaseConfig.host
+        self.db_port = DatabaseConfig.port
+        self.db_username = DatabaseConfig.username
+        self.db_password = DatabaseConfig.password
+        self.db_database = DatabaseConfig.database
+        self.db_query1 = DatabaseConfig.query1
+        self.db_query2 = DatabaseConfig.query2
+        self.db_query3 = DatabaseConfig.query3
+        self.db_schema = DatabaseConfig.schema
         self.last_sync_date_time = None
         self.time_sync()
         self.executor()
 
         #-- MIGRATION --#
 
-        if 'Neo4j' not in config:
-            raise ValueError("Neo4j section not found in config")
+        # if 'Neo4j' not in config:
+        #     raise ValueError("Neo4j section not found in config")
         
-        nj_config = {
-            'url': config['Neo4j']['url'],
-            'username': config['Neo4j']['username'],
-            'password': config['Neo4j']['password']
-        }
+        # nj_config = {
+        #     'url': config['Neo4j']['url'],
+        #     'username': config['Neo4j']['username'],
+        #     'password': config['Neo4j']['password']
+        # }
 
-        self.nj_url = nj_config.get('url')
-        self.nj_username = nj_config.get('username')
-        self.nj_password = nj_config.get('password')
+        self.nj_url = Neo4jConfig.url
+        self.nj_username = Neo4jConfig.username
+        self.nj_password = Neo4jConfig.password
 
         self.driver = GraphDatabase.driver(self.nj_url, auth=(self.nj_username, self.nj_password))
 
@@ -145,7 +146,7 @@ class DataLoaderAndMigrator:
 
             self.df_request = pd.read_sql(self.db_query1, engine)
             # self.df_assets = pd.read_sql(self.db_query2, engine)
-            self.df_assets = assets_df #pd.read_csv('./fetched_data/v_assets.csv')
+            self.df_assets = assets_df #pd.read_csv('./fetched_data/v_assets.csv') 
             self.df_request_with_activities = pd.read_sql(self.db_query3, engine)
             
             logger.info(f" Downloaded {len(self.df_request)} rows from 'v_requests', {len(self.df_assets)} rows from 'v_assets', and {len(self.df_request_with_activities)} rows from 'v_request_with_activities'.")
@@ -160,11 +161,16 @@ class DataLoaderAndMigrator:
                 engine.dispose()
     
     def load_CSVs(self):
-        self.is_hvac_df = HVAC_df
-        self.suggested_asset_df = asset_suggest_df
-        self.vendor_data = vendors_df
+        try:
+            self.is_hvac_df = HVAC_df
+            self.suggested_asset_df = asset_suggest_df
+            self.vendor_data = vendors_df
 
-        logger.info("Helper CSV files loaded successfully.")
+            logger.info("Helper CSV files loaded successfully.")
+
+        except Exception as e:
+            logger.warning(f"Error loading CSVs: {e}")
+            
 
 
     def data_preprocessor(self):
