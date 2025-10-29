@@ -1,27 +1,19 @@
 import pandas as pd
-# import sqlalchemy
 from sqlalchemy import create_engine
 import urllib.parse
-
-import configparser
-# import os
-from pathlib import Path
 import numpy as np
-
 import logging
+from neo4j import GraphDatabase
+import datetime
+from typing import Dict
+import warnings
+from config import *
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from neo4j import GraphDatabase
-
-import datetime
-import os
-from typing import Dict
-
-import warnings
 warnings.filterwarnings('ignore')
 
-from config import *
 
 class DataLoaderAndMigrator:
 
@@ -120,8 +112,8 @@ class DataLoaderAndMigrator:
     
     def load_and_save_data(self):
         
-        target_dir_path = './fetched_data'
-        Path(target_dir_path).mkdir(parents=True, exist_ok=True)
+        # target_dir_path = './fetched_data'
+        # Path(target_dir_path).mkdir(parents=True, exist_ok=True)
 
         try:
             engine = create_engine(self.conn_string)
@@ -279,8 +271,8 @@ class DataLoaderAndMigrator:
         logger.info("Node and Property data prepared!")
 
     def save_neo4j_CSVs(self):
-        neo4j_dir_path = './neo4j_data'
-        Path(neo4j_dir_path).mkdir(parents=True, exist_ok=True)
+        # neo4j_dir_path = './neo4j_data'
+        # Path(neo4j_dir_path).mkdir(parents=True, exist_ok=True)
         
         try:
             # renaming the features:
@@ -307,8 +299,8 @@ class DataLoaderAndMigrator:
     
     def create_and_save_relationships(self):
 
-        neo4j_relationship_dir_path = './neo4j_relationships'
-        Path(neo4j_relationship_dir_path).mkdir(parents=True, exist_ok=True)
+        # neo4j_relationship_dir_path = './neo4j_relationships'
+        # Path(neo4j_relationship_dir_path).mkdir(parents=True, exist_ok=True)
         
         try:
 
