@@ -182,10 +182,6 @@ class DataLoaderAndMigrator:
             else:
                 self.db_query3 = self.db_query3.replace(';',f'\nWHERE "requestCreatedDate" >=\'{self.last_sync_date_time}\';')
 
-            # print(self.db_query1)
-            # print(self.db_query2)
-            # print(self.db_query3)
-
             self.df_request = pd.read_sql(self.db_query1, engine)
             # self.df_assets = pd.read_sql(self.db_query2, engine)
             self.df_assets = pd.read_csv('./fetched_data/v_assets.csv')
@@ -193,12 +189,6 @@ class DataLoaderAndMigrator:
             
             logger.info(f" Downloaded {len(self.df_request)} rows from 'v_requests', {len(self.df_assets)} rows from 'v_assets', and {len(self.df_request_with_activities)} rows from 'v_request_with_activities'.")
             
-            # Saving the data (Don't save when pushing incrementally!!)
-            # # self.df_request.to_csv(f"{target_dir_path}/v_requests.csv",index=False)
-            # # self.df_assets.to_csv(f"{target_dir_path}/v_assets.csv",index=False)
-            # # self.df_request_with_activities.to_csv(f"{target_dir_path}/v_requests_with_activities.csv",index=False)
-            
-            # logger.info(f"Data exported to {target_dir_path}")
             
         except Exception as e:
             logger.warning(f"Error connecting to database: {e}")
@@ -281,8 +271,9 @@ class DataLoaderAndMigrator:
             
             dt_series = pd.to_datetime(date_col, format='mixed')
             formatted = dt_series.dt.strftime('%Y-%m-%d %H:%M:%S.%f').str[:-3]
+            formatted_transformed = formatted.str.replace(' ', 'T')
             
-            return formatted.str.replace(' ', 'T')
+            return formatted_transformed
 
 
         def process_service_requests(df_service_request):
@@ -291,15 +282,13 @@ class DataLoaderAndMigrator:
                 
                 for col in date_cols:
                     if col in df_service_request.columns:
-                        df_service_request.loc[:, col] = to_local_datetime(df_service_request[col])
-                
+                        # df_service_request.loc[:, col] = to_local_datetime(df_service_request[col]).astype(str) # not working- pandas replaces 'T' with a ' ' again
+                        df_service_request[col] = to_local_datetime(df_service_request[col])
                 
                 df_service_request['createdYear'] = pd.to_datetime(df_service_request['requestCreatedDate']).dt.year
                 df_service_request['createdMonth'] = pd.to_datetime(df_service_request['requestCreatedDate']).dt.month
-                
-                
+                  
                 df_service_request['isCompleted'] = df_service_request['requestCompletionDate'].notna()
-                
                 
                 conditions = [
                     df_service_request['requestCompletionDate'].isna(),
@@ -338,14 +327,6 @@ class DataLoaderAndMigrator:
             self.location_df.rename(columns={'locationAlternateId': 'locationId'}, inplace=True)
 
             self.service_req_df.rename(columns={'requestAlternateId': 'requestId', 'serviceClassificationAlternateId': 'serviceClassificationId'}, inplace=True)
-
-            # # saving the data
-            # self.activity_df.to_csv(f"{neo4j_dir_path}/activities.csv",index=False)
-            # self.assets_df.to_csv(f"{neo4j_dir_path}/assets.csv",index=False)
-            # self.country_df.to_csv(f"{neo4j_dir_path}/countries.csv",index=False)
-            # self.customer_df.to_csv(f"{neo4j_dir_path}/customers.csv",index=False)
-            # self.location_df.to_csv(f"{neo4j_dir_path}/location.csv",index=False)
-            # self.service_req_df.to_csv(f"{neo4j_dir_path}/service_requests.csv",index=False)
 
             # logger.info(f"Data for migration to Neo4J is saved on path: {neo4j_dir_path} and ready to be imported!")
         
@@ -397,7 +378,6 @@ class DataLoaderAndMigrator:
             logger.info(f"Relationships created!")
 
         except Exception as e:
-
             logger.warning(f"Error while creating and saving relationships: {e}")
 
 
@@ -456,23 +436,13 @@ class DataLoaderAndMigrator:
     def create_indexes(self):
         
         indexes = [
-            # "CREATE INDEX IF NOT EXISTS FOR (a:Asset) ON (a.assetId)",
-
             "CREATE INDEX IF NOT EXISTS FOR (s:ServiceRequest) ON (s.createdYear)",
             "CREATE INDEX IF NOT EXISTS FOR (s:ServiceRequest) ON (s.isCompleted)",
             "CREATE INDEX IF NOT EXISTS FOR (s:ServiceRequest) ON (s.createdMonth)",
             "CREATE INDEX IF NOT EXISTS FOR (s:ServiceRequest) ON (s.sla)",
-            # "CREATE INDEX IF NOT EXISTS FOR (s:ServiceRequest) ON (s.requestId)",
             "CREATE INDEX IF NOT EXISTS FOR (s:ServiceRequest) ON (s.serviceClassificationId)" ,
-
             "CREATE INDEX IF NOT EXISTS FOR (c:Customer) ON (c.customer)",
-            
-            # "CREATE INDEX IF NOT EXISTS FOR (l:Location) ON (l.locationId),"
-
-            # "CREATE INDEX IF NOT EXISTS FOR (ac:Activity) ON (ac.activityId),"
-
             "CREATE INDEX IF NOT EXISTS FOR (cn:Country) ON (cn.country)"
-
         ]
         
         with self.driver.session() as session:
@@ -482,7 +452,6 @@ class DataLoaderAndMigrator:
                     logger.info(f"Created index: {index}")
                 except Exception as e:
                     logger.warning(f"Index may already exist: {e}")
-
 
     def load_nodes_from_csv(self, csv, node_label: str, id_property: str, batch_size: int = 1000):
         """Load nodes from CSV file in batches."""
@@ -503,7 +472,6 @@ class DataLoaderAndMigrator:
                 MERGE (n:{node_label} {{{id_property}: record.{id_property}}})
                 SET n += record
                 """
-                
                 session.run(query, records=records)
                 logger.info(f"Loaded batch {i//batch_size + 1}/{(total_rows-1)//batch_size + 1} for {node_label}")
         
@@ -606,12 +574,10 @@ class DataLoaderAndMigrator:
 
     
     def load_nodes(self):
-        
-        # DATA_DIR = Path("./neo4j_data")
 
         try:
 
-            # # Create constraints and indexes              # not required when pushing data incrementally
+            # # Create constraints and indexes              # not required when hydrating data to a preexisting graph
             # self.create_constraints()
             # self.create_indexes()
             
@@ -658,8 +624,6 @@ class DataLoaderAndMigrator:
 
 
     def load_relationships(self):
-        
-        # REL_DIR = Path("./neo4j_relationships")
 
         try:
             # Load relationships

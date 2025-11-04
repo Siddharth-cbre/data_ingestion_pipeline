@@ -20,26 +20,6 @@ class DataLoaderAndMigrator:
     def __init__(self, config_file_path):
 
         #-- LOADER --#
-        # if not Path(config_file_path).exists():
-        #     logger.warning(f"Config file {config_file_path} not found!")
-        
-        # config = configparser.ConfigParser()
-        # config.read(config_file_path)
-
-        # if 'DATABASE' not in config:
-        #     raise ValueError("DATABASE section not found in config")
-        
-        # db_config = {
-        #     'host': config['DATABASE']['host'],
-        #     'port': int(config['DATABASE']['port']),
-        #     'username': config['DATABASE']['username'],
-        #     'password': config['DATABASE']['password'],
-        #     'database': config['DATABASE']['database'],
-        #     'query_request': config['DATABASE']['query1'],
-        #     'query_assets': config['DATABASE']['query2'],
-        #     'query_request_with_activities': config['DATABASE']['query3'],
-        #     'schema': config['DATABASE']['schema']
-        # }
 
         self.db_host = DatabaseConfig.host
         self.db_port = DatabaseConfig.port
@@ -55,15 +35,6 @@ class DataLoaderAndMigrator:
         self.executor()
 
         #-- MIGRATION --#
-
-        # if 'Neo4j' not in config:
-        #     raise ValueError("Neo4j section not found in config")
-        
-        # nj_config = {
-        #     'url': config['Neo4j']['url'],
-        #     'username': config['Neo4j']['username'],
-        #     'password': config['Neo4j']['password']
-        # }
 
         self.nj_url = Neo4jConfig.url
         self.nj_username = Neo4jConfig.username
@@ -111,9 +82,6 @@ class DataLoaderAndMigrator:
         return connection_strings[db_type]
     
     def load_and_save_data(self):
-        
-        # target_dir_path = './fetched_data'
-        # Path(target_dir_path).mkdir(parents=True, exist_ok=True)
 
         try:
             engine = create_engine(self.conn_string)
@@ -127,9 +95,7 @@ class DataLoaderAndMigrator:
             if not self.db_query2:
                 logger.warning("Query for v_assets is missing!")
                 return None
-            # else:
-            #     self.db_query2 = self.db_query2.replace(';',f'\nWHERE "requestCreatedDate" >=\'{self.last_sync_date_time}\';')
-            
+
             if not self.db_query3:
                 logger.warning("Query for v_request_with_activities is missing!")
                 return None
@@ -137,12 +103,11 @@ class DataLoaderAndMigrator:
                 self.db_query3 = self.db_query3.replace(';',f'\nWHERE "requestCreatedDate" >=\'{self.last_sync_date_time}\';')
 
             self.df_request = pd.read_sql(self.db_query1, engine)
-            # self.df_assets = pd.read_sql(self.db_query2, engine)
-            self.df_assets = assets_df #pd.read_csv('./fetched_data/v_assets.csv') 
+            self.df_assets = pd.read_sql(self.db_query2, engine)
+            # self.df_assets = assets_df #pd.read_csv('./fetched_data/v_assets.csv') 
             self.df_request_with_activities = pd.read_sql(self.db_query3, engine)
             
             logger.info(f" Downloaded {len(self.df_request)} rows from 'v_requests', {len(self.df_assets)} rows from 'v_assets', and {len(self.df_request_with_activities)} rows from 'v_request_with_activities'.")
-            
             
         except Exception as e:
             logger.warning(f"Error connecting to database: {e}")
@@ -163,7 +128,6 @@ class DataLoaderAndMigrator:
         except Exception as e:
             logger.warning(f"Error loading CSVs: {e}")
             
-
 
     def data_preprocessor(self):
 
@@ -240,7 +204,8 @@ class DataLoaderAndMigrator:
                 
                 for col in date_cols:
                     if col in df_service_request.columns:
-                        df_service_request.loc[:, col] = to_local_datetime(df_service_request[col])
+                        # df_service_request.loc[:, col] = to_local_datetime(df_service_request[col]).astype(str) # not working- pandas replaces 'T' with a ' ' again
+                        df_service_request[col] = to_local_datetime(df_service_request[col])
                 
                 df_service_request['createdYear'] = pd.to_datetime(df_service_request['requestCreatedDate']).dt.year
                 df_service_request['createdMonth'] = pd.to_datetime(df_service_request['requestCreatedDate']).dt.month
@@ -272,8 +237,6 @@ class DataLoaderAndMigrator:
         logger.info("Node and Property data prepared!")
 
     def save_neo4j_CSVs(self):
-        # neo4j_dir_path = './neo4j_data'
-        # Path(neo4j_dir_path).mkdir(parents=True, exist_ok=True)
         
         try:
             # renaming the features:
@@ -285,14 +248,6 @@ class DataLoaderAndMigrator:
 
             self.service_req_df.rename(columns={'requestAlternateId': 'requestId', 'serviceClassificationAlternateId': 'serviceClassificationId'}, inplace=True)
 
-            # # saving the data
-            # self.activity_df.to_csv(f"{neo4j_dir_path}/activities.csv",index=False)
-            # self.assets_df.to_csv(f"{neo4j_dir_path}/assets.csv",index=False)
-            # self.country_df.to_csv(f"{neo4j_dir_path}/countries.csv",index=False)
-            # self.customer_df.to_csv(f"{neo4j_dir_path}/customers.csv",index=False)
-            # self.location_df.to_csv(f"{neo4j_dir_path}/location.csv",index=False)
-            # self.service_req_df.to_csv(f"{neo4j_dir_path}/service_requests.csv",index=False)
-
             # logger.info(f"Data for migration to Neo4J is saved on path: {neo4j_dir_path} and ready to be imported!")
         
         except Exception as e:
@@ -300,9 +255,6 @@ class DataLoaderAndMigrator:
     
     def create_and_save_relationships(self):
 
-        # neo4j_relationship_dir_path = './neo4j_relationships'
-        # Path(neo4j_relationship_dir_path).mkdir(parents=True, exist_ok=True)
-        
         try:
 
             self.LOCATED_AT = self.df_request[['assetAlternateId','locationAlternateId']].dropna().drop_duplicates()
@@ -402,7 +354,6 @@ class DataLoaderAndMigrator:
                 MERGE (n:{node_label} {{{id_property}: record.{id_property}}})
                 SET n += record
                 """
-                
                 session.run(query, records=records)
                 logger.info(f"Loaded batch {i//batch_size + 1}/{(total_rows-1)//batch_size + 1} for {node_label}")
         
@@ -503,14 +454,9 @@ class DataLoaderAndMigrator:
 
         self.close()
 
-    
     def load_nodes(self):
 
         try:
-
-            # # Create constraints and indexes              # not required when pushing data incrementally
-            # self.create_constraints()
-            # self.create_indexes()
             
             # Load nodes
             
@@ -687,8 +633,6 @@ class DataLoaderAndMigrator:
 
         except Exception as e:
             logger.warning(f"Error creating Relationships for nodes on Neo4j: {e}")
-
-
 
 
 try:
