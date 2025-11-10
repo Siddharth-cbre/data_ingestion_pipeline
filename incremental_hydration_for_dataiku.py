@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore')
 
 class DataLoaderAndMigrator:
 
-    def __init__(self, config_file_path):
+    def __init__(self):
 
         #-- LOADER --#
 
@@ -90,7 +90,7 @@ class DataLoaderAndMigrator:
                 logger.warning("Query for v_request is missing!")
                 return None 
             else:
-                self.db_query1 = self.db_query1.replace(';',f'\nWHERE "requestCreatedDate" >=\'{self.last_sync_date_time}\';')
+                self.db_query1 = self.db_query1.replace(';',f'\nWHERE "requestModifiedDate" >=\'{self.last_sync_date_time}\';')
         
             if not self.db_query2:
                 logger.warning("Query for v_assets is missing!")
@@ -100,7 +100,7 @@ class DataLoaderAndMigrator:
                 logger.warning("Query for v_request_with_activities is missing!")
                 return None
             else:
-                self.db_query3 = self.db_query3.replace(';',f'\nWHERE "requestCreatedDate" >=\'{self.last_sync_date_time}\';')
+                self.db_query3 = self.db_query3.replace(';',f'\nWHERE "requestModifiedDate" >=\'{self.last_sync_date_time}\';')
 
             self.df_request = pd.read_sql(self.db_query1, engine)
             self.df_assets = pd.read_sql(self.db_query2, engine)
@@ -147,7 +147,11 @@ class DataLoaderAndMigrator:
         is_hvac_df['is_HVAC'] = True
         is_hvac_df.drop(columns=['Asset Description'], inplace = True)
         v_assets_with_hvac = v_assets.merge(is_hvac_df, on='Asset Alt Id', how='left')
-        v_assets_with_hvac.loc[v_assets_with_hvac['is_HVAC'] == True, 'asset_type'] = 'HVAC'
+        
+        if not v_assets_with_hvac.empty:
+            v_assets_with_hvac.loc[v_assets_with_hvac['is_HVAC'] == True, 'asset_type'] = 'HVAC'
+        else:
+            v_assets_with_hvac['asset_type'] = None
 
         final_assets_df = v_assets_with_hvac[['assetId', 'Asset Description', 'Asset Alt Id', 'manufacturer', 'model',
                                               'serialNumber', 'is_HVAC', 'asset_type', 'requestId','assetAlternateId', 'requestAlternateId']]
@@ -636,7 +640,7 @@ class DataLoaderAndMigrator:
 
 
 try:
-    dataMigrator = DataLoaderAndMigrator('config.ini')
+    dataMigrator = DataLoaderAndMigrator()
     dataMigrator.migration_executor()
     
 except NameError:

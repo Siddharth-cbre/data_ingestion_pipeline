@@ -1,6 +1,7 @@
 config.ini
 config.py
 data
+data_not_pm
 data_injestion
 fetched_data
 neo4j_data
