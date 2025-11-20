@@ -21,6 +21,12 @@ from typing import Dict
 import warnings
 warnings.filterwarnings('ignore')
 
+# batching in neo4j:
+# LOAD CSV WITH HEADERS FROM "file:///node_file.csv" AS csvLine
+# CALL {
+#   WITH csvLine
+#   CREATE (:enc {csn: toInteger(csvLine.csn)})
+# } IN TRANSACTIONS OF 10000 ROWS
 
 class DataLoaderAndMigrator:
 
@@ -183,8 +189,8 @@ class DataLoaderAndMigrator:
                 self.db_query3 = self.db_query3.replace(';',f'\nWHERE "requestModifiedDate" >=\'{self.last_sync_date_time}\';')
 
             self.df_request = pd.read_sql(self.db_query1, engine)
-            # self.df_assets = pd.read_sql(self.db_query2, engine)
-            self.df_assets = pd.read_csv('./fetched_data/v_assets.csv')
+            self.df_assets = pd.read_sql(self.db_query2, engine)
+            # self.df_assets = pd.read_csv('./fetched_data/v_assets.csv')
             self.df_request_with_activities = pd.read_sql(self.db_query3, engine)
             
             logger.info(f" Downloaded {len(self.df_request)} rows from 'v_requests', {len(self.df_assets)} rows from 'v_assets', and {len(self.df_request_with_activities)} rows from 'v_request_with_activities'.")
@@ -263,7 +269,7 @@ class DataLoaderAndMigrator:
         temp_ser_req = self.df_request[['isSelfAssign', 'priorityCode', 
                   'requestCreatedDate', 'requestDescription', 'requestAlternateId', 'completionNotes', 
                   'requestTargetCompletionDate', 'serviceClassificationAlternateId', 'serviceClassificationPath',  
-                  'requestCompletionDate', 'workType']]
+                  'requestCompletionDate', 'workType', 'requestModifiedDate']]
         
         def to_local_datetime(date_col):
     
@@ -282,7 +288,7 @@ class DataLoaderAndMigrator:
 
         def process_service_requests(df_service_request):
                 
-                date_cols = ['requestCreatedDate', 'requestTargetCompletionDate', 'requestCompletionDate']
+                date_cols = ['requestCreatedDate', 'requestTargetCompletionDate', 'requestCompletionDate', 'requestModifiedDate']
                 
                 for col in date_cols:
                     if col in df_service_request.columns:
@@ -471,10 +477,11 @@ class DataLoaderAndMigrator:
                 records = batch.to_dict('records')
                 
                 # Build Cypher query dynamically
+                # changing from 'SET n += record' to perform overwrite instead of merge
                 query = f"""
                 UNWIND $records AS record
                 MERGE (n:{node_label} {{{id_property}: record.{id_property}}})
-                SET n += record
+                SET n = record
                 """
                 session.run(query, records=records)
                 logger.info(f"Loaded batch {i//batch_size + 1}/{(total_rows-1)//batch_size + 1} for {node_label}")
@@ -523,7 +530,7 @@ class DataLoaderAndMigrator:
                 """
                 
                 if rel_props:
-                    query += f"\nSET r += {{{', '.join([f'{p}: record.{p}' for p in rel_config['properties']])}}}"
+                    query += f"\nSET r = {{{', '.join([f'{p}: record.{p}' for p in rel_config['properties']])}}}"   # changing from 'SET r += ' for overwrite instead of merge
                 
                 session.run(query, records=records)
                 logger.info(f"Loaded batch {i//batch_size + 1}/{(total_rows-1)//batch_size + 1} for {rel_config['rel_type']}")
