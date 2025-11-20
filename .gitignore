@@ -7,3 +7,4 @@ fetched_data
 neo4j_data
 neo4j_relationships
 .DS_Store
+__pycache__
